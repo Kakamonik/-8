@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="ar" dir="rtl" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مشاركة الملفات</title>
+  <script src="/_sdk/data_sdk.js"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+        body {
+            box-sizing: border-box;
+        }
+        
+        .upload-area {
+            border: 2px dashed #e5e7eb;
+            transition: all 0.3s ease;
+        }
+        
+        .upload-area.dragover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        
+        .file-item {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+        
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            animation: toastSlide 0.3s ease-out;
+        }
+        
+        @keyframes toastSlide {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+    </style>
+  <style>@view-transition { navigation: auto; }</style>
+ </head>
+ <body class="h-full bg-gradient-to-br from-blue-50 to-indigo-100 font-sans">
+  <div class="min-h-full flex flex-col"><!-- Header -->
+   <header class="bg-white shadow-lg border-b-4 border-blue-500">
+    <div class="max-w-6xl mx-auto px-6 py-6">
+     <div class="flex items-center justify-between">
+      <div class="flex items-center space-x-4 space-x-reverse">
+       <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+        </svg>
+       </div>
+       <div>
+        <h1 id="site-title" class="text-2xl font-bold text-gray-800">مشاركة الملفات</h1>
+        <p id="welcome-message" class="text-gray-600">ارفع ملفاتك واحصل على روابط مؤقتة</p>
+       </div>
+      </div>
+      <div class="flex items-center space-x-4 space-x-reverse">
+       <div class="text-center">
+        <div id="total-files" class="text-2xl font-bold text-blue-600">
+         0
+        </div>
+        <div class="text-sm text-gray-500">
+         ملف مرفوع
+        </div>
+       </div>
+       <div class="text-center">
+        <div id="total-downloads" class="text-2xl font-bold text-green-600">
+         0
+        </div>
+        <div class="text-sm text-gray-500">
+         تحميل
+        </div>
+       </div>
+      </div>
+     </div>
+    </div>
+   </header><!-- Main Content -->
+   <main class="flex-1 max-w-6xl mx-auto px-6 py-8 w-full"><!-- Upload Area -->
+    <div class="bg-white rounded-2xl shadow-xl p-8 mb-8">
+     <div id="upload-area" class="upload-area rounded-xl p-12 text-center cursor-pointer">
+      <div class="mb-6">
+       <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+       </svg>
+      </div>
+      <h3 class="text-xl font-semibold text-gray-700 mb-2">اسحب الملفات هنا أو انقر للاختيار</h3>
+      <p class="text-gray-500 mb-6">يدعم جميع أنواع الملفات - صور، فيديوهات، مستندات، وأكثر</p><button id="upload-btn" class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-8 py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 shadow-lg"> اختر الملفات </button> <input type="file" id="file-input" multiple class="hidden" accept="*/*">
+     </div><!-- Upload Progress -->
+     <div id="upload-progress" class="hidden mt-6">
+      <div class="flex items-center justify-between mb-2"><span class="text-sm text-gray-600">جاري الرفع...</span> <span id="progress-text" class="text-sm text-gray-600">0%</span>
+      </div>
+      <div class="w-full bg-gray-200 rounded-full h-2">
+       <div id="progress-bar" class="progress-bar bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full" style="width: 0%"></div>
+      </div>
+     </div>
+    </div><!-- Files List -->
+    <div class="bg-white rounded-2xl shadow-xl p-8">
+     <div class="flex items-center justify-between mb-6">
+      <h2 class="text-xl font-bold text-gray-800">الملفات المرفوعة</h2><button id="clear-all-btn" class="text-red-500 hover:text-red-700 font-medium transition-colors duration-200"> حذف الكل </button>
+     </div>
+     <div id="files-container" class="space-y-4">
+      <div id="empty-state" class="text-center py-12">
+       <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+       </svg>
+       <p class="text-gray-500">لا توجد ملفات مرفوعة بعد</p>
+       <p class="text-gray-400 text-sm mt-2">ابدأ برفع ملفاتك للحصول على روابط مؤقتة</p>
+      </div>
+     </div>
+    </div>
+   </main>
+  </div>
+  <script>
+        // Configuration
+        const defaultConfig = {
+            site_title: "مشاركة الملفات",
+            welcome_message: "ارفع ملفاتك واحصل على روابط مؤقتة",
+            upload_button_text: "اختر الملفات",
+            primary_color: "#3b82f6",
+            secondary_color: "#ffffff",
+            text_color: "#1f2937",
+            accent_color: "#10b981",
+            background_color: "#f0f9ff"
+        };
+
+        let currentFiles = [];
+        let isUploading = false;
+
+        // Data SDK Handler
+        const dataHandler = {
+            onDataChanged(data) {
+                currentFiles = data;
+                renderFilesList();
+                updateStats();
+            }
+        };
+
+        // Element SDK Configuration
+        async function onConfigChange(config) {
+            const siteTitle = config.site_title || defaultConfig.site_title;
+            const welcomeMessage = config.welcome_message || defaultConfig.welcome_message;
+            const uploadButtonText = config.upload_button_text || defaultConfig.upload_button_text;
+            const primaryColor = config.primary_color || defaultConfig.primary_color;
+            const secondaryColor = config.secondary_color || defaultConfig.secondary_color;
+            const textColor = config.text_color || defaultConfig.text_color;
+            const accentColor = config.accent_color || defaultConfig.accent_color;
+            const backgroundColor = config.background_color || defaultConfig.background_color;
+
+            // Update text content
+            document.getElementById('site-title').textContent = siteTitle;
+            document.getElementById('welcome-message').textContent = welcomeMessage;
+            document.getElementById('upload-btn').textContent = uploadButtonText;
+
+            // Update colors
+            document.body.style.background = `linear-gradient(to bottom right, ${backgroundColor}, ${primaryColor}20)`;
+            
+            const uploadBtn = document.getElementById('upload-btn');
+            uploadBtn.style.background = `linear-gradient(to right, ${primaryColor}, ${primaryColor}dd)`;
+            
+            const progressBar = document.getElementById('progress-bar');
+            progressBar.style.background = `linear-gradient(to right, ${primaryColor}, ${primaryColor}dd)`;
+            
+            // Update header colors
+            const header = document.querySelector('header');
+            header.style.backgroundColor = secondaryColor;
+            header.style.borderBottomColor = primaryColor;
+            
+            const iconBg = document.querySelector('.w-12.h-12');
+            iconBg.style.background = `linear-gradient(to right, ${primaryColor}, ${primaryColor}dd)`;
+            
+            // Update text colors
+            document.getElementById('site-title').style.color = textColor;
+            document.getElementById('welcome-message').style.color = textColor + '99';
+            
+            // Update stats colors
+            document.getElementById('total-files').style.color = primaryColor;
+            document.getElementById('total-downloads').style.color = accentColor;
+        }
+
+        function mapToCapabilities(config) {
+            return {
+                recolorables: [
+                    {
+                        get: () => config.primary_color || defaultConfig.primary_color,
+                        set: (value) => {
+                            if (window.elementSdk) {
+                                window.elementSdk.setConfig({ primary_color: value });
+                            }
+                        }
+                    },
+                    {
+                        get: () => config.secondary_color || defaultConfig.secondary_color,
+                        set: (value) => {
+                            if (window.elementSdk) {
+                                window.elementSdk.setConfig({ secondary_color: value });
+                            }
+                        }
+                    },
+                    {
+                        get: () => config.text_color || defaultConfig.text_color,
+                        set: (value) => {
+                            if (window.elementSdk) {
+                                window.elementSdk.setConfig({ text_color: value });
+                            }
+                        }
+                    },
+                    {
+                        get: () => config.accent_color || defaultConfig.accent_color,
+                        set: (value) => {
+                            if (window.elementSdk) {
+                                window.elementSdk.setConfig({ accent_color: value });
+                            }
+                        }
+                    },
+                    {
+                        get: () => config.background_color || defaultConfig.background_color,
+                        set: (value) => {
+                            if (window.elementSdk) {
+                                window.elementSdk.setConfig({ background_color: value });
+                            }
+                        }
+                    }
+                ],
+                borderables: [],
+                fontEditable: undefined,
+                fontSizeable: undefined
+            };
+        }
+
+        function mapToEditPanelValues(config) {
+            return new Map([
+                ["site_title", config.site_title || defaultConfig.site_title],
+                ["welcome_message", config.welcome_message || defaultConfig.welcome_message],
+                ["upload_button_text", config.upload_button_text || defaultConfig.upload_button_text]
+            ]);
+        }
+
+        // Initialize SDKs
+        async function initializeApp() {
+            try {
+                // Initialize Data SDK
+                const dataResult = await window.dataSdk.init(dataHandler);
+                if (!dataResult.isOk) {
+                    console.error("فشل في تهيئة قاعدة البيانات");
+                    return;
+                }
+
+                // Initialize Element SDK
+                if (window.elementSdk) {
+                    await window.elementSdk.init({
+                        defaultConfig,
+                        onConfigChange,
+                        mapToCapabilities,
+                        mapToEditPanelValues
+                    });
+                }
+
+                setupEventListeners();
+            } catch (error) {
+                console.error("خطأ في تهيئة التطبيق:", error);
+            }
+        }
+
+        // Event Listeners
+        function setupEventListeners() {
+            const uploadArea = document.getElementById('upload-area');
+            const fileInput = document.getElementById('file-input');
+            const uploadBtn = document.getElementById('upload-btn');
+            const clearAllBtn = document.getElementById('clear-all-btn');
+
+            // Upload button click
+            uploadBtn.addEventListener('click', () => {
+                if (!isUploading) {
+                    fileInput.click();
+                }
+            });
+
+            // Upload area click
+            uploadArea.addEventListener('click', () => {
+                if (!isUploading) {
+                    fileInput.click();
+                }
+            });
+
+            // File input change
+            fileInput.addEventListener('change', handleFileSelect);
+
+            // Drag and drop
+            uploadArea.addEventListener('dragover', handleDragOver);
+            uploadArea.addEventListener('dragleave', handleDragLeave);
+            uploadArea.addEventListener('drop', handleDrop);
+
+            // Clear all files
+            clearAllBtn.addEventListener('click', clearAllFiles);
+        }
+
+        // File handling functions
+        function handleFileSelect(event) {
+            const files = Array.from(event.target.files);
+            if (files.length > 0) {
+                processFiles(files);
+            }
+        }
+
+        function handleDragOver(event) {
+            event.preventDefault();
+            event.currentTarget.classList.add('dragover');
+        }
+
+        function handleDragLeave(event) {
+            event.currentTarget.classList.remove('dragover');
+        }
+
+        function handleDrop(event) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('dragover');
+            
+            const files = Array.from(event.dataTransfer.files);
+            if (files.length > 0) {
+                processFiles(files);
+            }
+        }
+
+        async function processFiles(files) {
+            if (currentFiles.length + files.length > 999) {
+                showToast("تم الوصول للحد الأقصى من الملفات (999 ملف). يرجى حذف بعض الملفات أولاً.", "error");
+                return;
+            }
+
+            isUploading = true;
+            showUploadProgress();
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const progress = ((i + 1) / files.length) * 100;
+                updateProgress(progress);
+
+                await simulateUpload(file);
+            }
+
+            hideUploadProgress();
+            isUploading = false;
+            document.getElementById('file-input').value = '';
+            showToast(`تم رفع ${files.length} ملف بنجاح!`, "success");
+        }
+
+        async function simulateUpload(file) {
+            // Simulate upload delay
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            const fileData = {
+                id: generateId(),
+                filename: file.name,
+                filesize: formatFileSize(file.size),
+                filetype: getFileType(file.type || file.name),
+                uploadDate: new Date().toISOString(),
+                downloadLink: generateDownloadLink(),
+                expiryDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
+                downloadCount: 0
+            };
+
+            const result = await window.dataSdk.create(fileData);
+            if (!result.isOk) {
+                showToast(`فشل في رفع الملف: ${file.name}`, "error");
+            }
+        }
+
+        // UI Functions
+        function renderFilesList() {
+            const container = document.getElementById('files-container');
+            const emptyState = document.getElementById('empty-state');
+
+            if (currentFiles.length === 0) {
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+
+            // Sort files by upload date (newest first)
+            const sortedFiles = [...currentFiles].sort((a, b) => 
+                new Date(b.uploadDate) - new Date(a.uploadDate)
+            );
+
+            container.innerHTML = sortedFiles.map(file => createFileItem(file)).join('');
+        }
+
+        function createFileItem(file) {
+            const isExpired = new Date(file.expiryDate) < new Date();
+            const timeLeft = getTimeLeft(file.expiryDate);
+            const fileIcon = getFileIcon(file.filetype);
+
+            return `
+                <div class="file-item bg-gray-50 rounded-xl p-6 border border-gray-200 hover:shadow-md transition-all duration-200">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4 space-x-reverse flex-1">
+                            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                ${fileIcon}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="font-semibold text-gray-800 truncate">${file.filename}</h3>
+                                <div class="flex items-center space-x-4 space-x-reverse text-sm text-gray-500 mt-1">
+                                    <span>${file.filesize}</span>
+                                    <span>•</span>
+                                    <span>${formatDate(file.uploadDate)}</span>
+                                    <span>•</span>
+                                    <span>${file.downloadCount} تحميل</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3 space-x-reverse">
+                            <div class="text-left">
+                                <div class="text-sm ${isExpired ? 'text-red-500' : 'text-green-500'} font-medium">
+                                    ${isExpired ? 'منتهي الصلاحية' : timeLeft}
+                                </div>
+                                <div class="text-xs text-gray-400">
+                                    ${isExpired ? 'الرابط غير متاح' : 'متبقي'}
+                                </div>
+                            </div>
+                            <div class="flex space-x-2 space-x-reverse">
+                                <button onclick="copyLink('${file.downloadLink}')" 
+                                        class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors duration-200 text-sm font-medium ${isExpired ? 'opacity-50 cursor-not-allowed' : ''}"
+                                        ${isExpired ? 'disabled' : ''}>
+                                    نسخ الرابط
+                                </button>
+                                <button onclick="deleteFile('${file.id}')" 
+                                        class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors duration-200 text-sm font-medium">
+                                    حذف
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateStats() {
+            const totalFiles = currentFiles.length;
+            const totalDownloads = currentFiles.reduce((sum, file) => sum + file.downloadCount, 0);
+
+            document.getElementById('total-files').textContent = totalFiles;
+            document.getElementById('total-downloads').textContent = totalDownloads;
+        }
+
+        function showUploadProgress() {
+            document.getElementById('upload-progress').classList.remove('hidden');
+        }
+
+        function hideUploadProgress() {
+            document.getElementById('upload-progress').classList.add('hidden');
+            updateProgress(0);
+        }
+
+        function updateProgress(percent) {
+            document.getElementById('progress-bar').style.width = `${percent}%`;
+            document.getElementById('progress-text').textContent = `${Math.round(percent)}%`;
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast px-6 py-4 rounded-lg shadow-lg text-white font-medium ${
+                type === 'success' ? 'bg-green-500' : 
+                type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+            }`;
+            toast.textContent = message;
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        // Action Functions
+        async function copyLink(link) {
+            try {
+                await navigator.clipboard.writeText(link);
+                showToast('تم نسخ الرابط بنجاح!', 'success');
+                
+                // Increment download count
+                const file = currentFiles.find(f => f.downloadLink === link);
+                if (file) {
+                    const updatedFile = { ...file, downloadCount: file.downloadCount + 1 };
+                    const result = await window.dataSdk.update(updatedFile);
+                    if (!result.isOk) {
+                        console.error('فشل في تحديث عداد التحميل');
+                    }
+                }
+            } catch (error) {
+                showToast('فشل في نسخ الرابط', 'error');
+            }
+        }
+
+        async function deleteFile(fileId) {
+            const file = currentFiles.find(f => f.id === fileId);
+            if (file) {
+                const result = await window.dataSdk.delete(file);
+                if (result.isOk) {
+                    showToast('تم حذف الملف بنجاح', 'success');
+                } else {
+                    showToast('فشل في حذف الملف', 'error');
+                }
+            }
+        }
+
+        async function clearAllFiles() {
+            if (currentFiles.length === 0) return;
+
+            // Create confirmation UI
+            const confirmDiv = document.createElement('div');
+            confirmDiv.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            confirmDiv.innerHTML = `
+                <div class="bg-white rounded-xl p-6 max-w-md mx-4">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">تأكيد الحذف</h3>
+                    <p class="text-gray-600 mb-6">هل أنت متأكد من حذف جميع الملفات؟ لا يمكن التراجع عن هذا الإجراء.</p>
+                    <div class="flex space-x-3 space-x-reverse">
+                        <button id="confirm-delete" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors">
+                            حذف الكل
+                        </button>
+                        <button id="cancel-delete" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition-colors">
+                            إلغاء
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(confirmDiv);
+
+            document.getElementById('confirm-delete').addEventListener('click', async () => {
+                for (const file of currentFiles) {
+                    await window.dataSdk.delete(file);
+                }
+                confirmDiv.remove();
+                showToast('تم حذف جميع الملفات', 'success');
+            });
+
+            document.getElementById('cancel-delete').addEventListener('click', () => {
+                confirmDiv.remove();
+            });
+        }
+
+        // Utility Functions
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        function generateDownloadLink() {
+            const id = generateId();
+            return `https://files.share/${id}`;
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 بايت';
+            const k = 1024;
+            const sizes = ['بايت', 'كيلوبايت', 'ميجابايت', 'جيجابايت'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function getFileType(mimeType) {
+            if (mimeType.startsWith('image/')) return 'صورة';
+            if (mimeType.startsWith('video/')) return 'فيديو';
+            if (mimeType.startsWith('audio/')) return 'صوت';
+            if (mimeType.includes('pdf')) return 'PDF';
+            if (mimeType.includes('word') || mimeType.includes('document')) return 'مستند';
+            if (mimeType.includes('sheet') || mimeType.includes('excel')) return 'جدول بيانات';
+            if (mimeType.includes('zip') || mimeType.includes('rar')) return 'أرشيف';
+            return 'ملف';
+        }
+
+        function getFileIcon(fileType) {
+            const icons = {
+                'صورة': '<svg class="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"></path></svg>',
+                'فيديو': '<svg class="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm3 2.5a.5.5 0 01.8-.4l4.5 3a.5.5 0 010 .8l-4.5 3a.5.5 0 01-.8-.4v-6z" clip-rule="evenodd"></path></svg>',
+                'صوت': '<svg class="w-6 h-6 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.816L4.846 14H2a1 1 0 01-1-1V7a1 1 0 011-1h2.846l3.537-2.816a1 1 0 011.617.816z" clip-rule="evenodd"></path></svg>',
+                'PDF': '<svg class="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"></path></svg>'
+            };
+            return icons[fileType] || '<svg class="w-6 h-6 text-gray-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"></path></svg>';
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('ar-SA', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function getTimeLeft(expiryDate) {
+            const now = new Date();
+            const expiry = new Date(expiryDate);
+            const diff = expiry - now;
+
+            if (diff <= 0) return 'منتهي';
+
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+            if (hours > 0) {
+                return `${hours} ساعة`;
+            } else {
+                return `${minutes} دقيقة`;
+            }
+        }
+
+        // Initialize app when page loads
+        document.addEventListener('DOMContentLoaded', initializeApp);
+    </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'99d9aae443959778',t:'MTc2Mjk4ODY1Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
